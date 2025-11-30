@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Muffin Catcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 100%);
+            font-family: 'Poppins', sans-serif;
+            touch-action: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Cohesive color palette
+        const colors = {
+            background: {
+                start: '#FFB6C1',  // Light pink
+                end: '#FFA07A'      // Light salmon
+            },
+            primary: '#FF8FA3',     // Soft coral pink
+            secondary: '#FFC4A3',   // Peach
+            accent: '#FFD4E5',      // Light blush
+            text: '#FFFFFF',
+            textShadow: 'rgba(255, 140, 163, 0.5)',
+            overlay: 'rgba(255, 179, 193, 0.3)',
+            overlayDark: 'rgba(255, 140, 163, 0.6)',
+            particles: ['#FFB6C1', '#FFA07A', '#FF8FA3', '#FFC4A3', '#FFD4E5']
+        };
+
+        const GameState = {
+            START: 'start',
+            PLAYING: 'playing',
+            GAME_OVER: 'gameover',
+            SHOP: 'shop',
+            SHOWING_NOTE: 'showing_note',
+            VAULT: 'vault'
+        };
+
+        let gameState = GameState.START;
+        let score = 0;
+        let balance = 0;  // Total muffins collected (from Supabase)
+        let highScore = 0;  // High score (from Supabase)
+        let dataLoaded = false;
+        let availableNotesCount = 0;
+        let currentNote = '';
+        let noteAnimation = 0;
+        let vaultNotes = [];
+        let vaultScrollOffset = 0;
+        let touchStartY = 0;
+        let isDraggingVault = false;
+
+        // Fetch muffin data from Supabase
+        async function fetchMuffinData() {
+            try {
+                const response = await fetch('/api/muffins');
+                const data = await response.json();
+                balance = data.balance;
+                highScore = data.highScore;
+                dataLoaded = true;
+            } catch (error) {
+                console.error('Error fetching muffin data:', error);
+                dataLoaded = true; // Still allow game to start
+            }
+        }
+
+        // Update muffin data to Supabase
+        async function updateMuffinData(newBalance, newHighScore) {
+            try {
+                const response = await fetch('/api/muffins/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        balance: newBalance,
+                        highScore: newHighScore
+                    })
+                });
+                const data = await response.json();
+                balance = data.balance;
+                highScore = data.highScore;
+            } catch (error) {
+                console.error('Error updating muffin data:', error);
+            }
+        }
+
+        // Fetch available notes count
+        async function fetchAvailableNotes() {
+            try {
+                const response = await fetch('/api/notes/available');
+                const data = await response.json();
+                availableNotesCount = data.count;
+            } catch (error) {
+                console.error('Error fetching available notes:', error);
+            }
+        }
+
+        // Buy a note
+        async function buyNote() {
+            try {
+                const response = await fetch('/api/notes/buy', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to buy note');
+                    return false;
+                }
+
+                const data = await response.json();
+                balance = data.newBalance;
+                currentNote = data.note;
+                noteAnimation = 0;
+                await fetchAvailableNotes();
+                return true;
+            } catch (error) {
+                console.error('Error buying note:', error);
+                alert('Failed to buy note');
+                return false;
+            }
+        }
+
+        // Fetch vault notes
+        async function fetchVaultNotes() {
+            try {
+                const response = await fetch('/api/notes/vault');
+                const data = await response.json();
+                vaultNotes = data.notes;
+            } catch (error) {
+                console.error('Error fetching vault notes:', error);
+            }
+        }
+
+        // Initialize data fetch
+        fetchMuffinData();
+        fetchAvailableNotes();
+
+        // Responsive font sizes
+        function getFontSize(base) {
+            const scale = Math.min(canvas.width / 400, 1.2);
+            return Math.max(base * scale, base * 0.6);
+        }
+
+        // Load assets
+        const assets = {
+            muffins: [],
+            geese: [],
+            basket: null,
+            loaded: false
+        };
+
+        const MUFFIN_COUNT = 6;
+        const GOOSE_COUNT = 5;
+
+        let assetsToLoad = MUFFIN_COUNT + GOOSE_COUNT + 1;
+        let assetsLoaded = 0;
+
+        function checkAllAssetsLoaded() {
+            assetsLoaded++;
+            if (assetsLoaded === assetsToLoad) {
+                assets.loaded = true;
+            }
+        }
+
+        // Load muffin assets
+        for (let i = 1; i <= MUFFIN_COUNT; i++) {
+            const img = new Image();
+            img.onload = checkAllAssetsLoaded;
+            img.src = `assets/muffins/${i}.svg`;
+            assets.muffins.push(img);
+        }
+
+        // Load goose assets
+        for (let i = 1; i <= GOOSE_COUNT; i++) {
+            const img = new Image();
+            img.onload = checkAllAssetsLoaded;
+            img.src = `assets/geese/${i}.svg`;
+            assets.geese.push(img);
+        }
+
+        // Load basket asset
+        assets.basket = new Image();
+        assets.basket.onload = checkAllAssetsLoaded;
+        assets.basket.src = 'assets/basket.svg';
+
+        // Basket
+        const basket = {
+            width: 120,
+            height: 80,
+            x: canvas.width / 2 - 60,
+            y: canvas.height - 120,
+            bobbing: 0
+        };
+
+        // Particle system for celebrations
+        let particles = [];
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6 - 2;
+                this.life = 1;
+                this.color = colors.particles[Math.floor(Math.random() * colors.particles.length)];
+                this.size = Math.random() * 4 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.2;
+                this.life -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+
+        function createCelebration(x, y) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y));
+            }
+        }
+
+        // Falling objects
+        let fallingObjects = [];
+
+        class FallingObject {
+            constructor(isGoose = false) {
+                this.isGoose = isGoose;
+
+                // Random size variation (0.7 to 1.3 scale)
+                this.scale = Math.random() * 0.6 + 0.7;
+                this.baseSize = 60;
+                this.size = this.baseSize * this.scale;
+
+                this.x = Math.random() * (canvas.width - this.size) + this.size / 2;
+                this.y = -this.size;
+                this.speed = Math.random() * 4 + 2.5;  // Speed range: 2.5 to 6.5
+
+                // Random rotation
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+
+                // Random asset
+                if (isGoose) {
+                    this.asset = assets.geese[Math.floor(Math.random() * assets.geese.length)];
+                } else {
+                    this.asset = assets.muffins[Math.floor(Math.random() * assets.muffins.length)];
+                }
+
+                // Wobble animation
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.y += this.speed;
+                this.rotation += this.rotationSpeed;
+                this.wobble += 0.05;
+            }
+
+            draw() {
+                if (!assets.loaded) return;
+
+                ctx.save();
+                ctx.translate(this.x + Math.sin(this.wobble) * 5, this.y);
+                ctx.rotate(this.rotation);
+
+                // Draw shadow
+                ctx.globalAlpha = 0.2;
+                ctx.fillStyle = colors.textShadow;
+                ctx.beginPath();
+                ctx.ellipse(5, 5, this.size / 2, this.size / 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw asset
+                ctx.globalAlpha = 1;
+                ctx.drawImage(
+                    this.asset,
+                    -this.size / 2,
+                    -this.size / 2,
+                    this.size,
+                    this.size
+                );
+
+                ctx.restore();
+            }
+
+            isOffScreen() {
+                return this.y - this.size > canvas.height;
+            }
+
+            checkCollision(basket) {
+                const objBottom = this.y + this.size / 2;
+                const objTop = this.y - this.size / 2;
+                const objLeft = this.x - this.size / 2;
+                const objRight = this.x + this.size / 2;
+
+                return objRight > basket.x &&
+                       objLeft < basket.x + basket.width &&
+                       objBottom > basket.y + 20 &&
+                       objTop < basket.y + basket.height;
+            }
+        }
+
+        // Touch handling
+        let touchStartX = 0;
+        let isDragging = false;
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+
+            if (gameState === GameState.PLAYING && touch.clientY > basket.y - 50) {
+                isDragging = true;
+            }
+
+            // VAULT SCREEN - Handle scrolling
+            if (gameState === GameState.VAULT) {
+                // Check if touching scrollable area (not the back button)
+                if (touch.clientY > 120 && touch.clientY < canvas.height - 80) {
+                    isDraggingVault = true;
+                    return;
+                }
+                // Back button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height - 70 && touch.clientY < canvas.height - 20) {
+                    gameState = GameState.SHOP;
+                    vaultScrollOffset = 0; // Reset scroll
+                }
+                return;
+            }
+
+            // START SCREEN BUTTONS
+            if (gameState === GameState.START) {
+                // Play button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 60 && touch.clientY < canvas.height / 2 + 120) {
+                    startGame();
+                }
+                // Shop button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 135 && touch.clientY < canvas.height / 2 + 185) {
+                    gameState = GameState.SHOP;
+                    return; // Prevent further processing
+                }
+            }
+
+            // GAME OVER SCREEN BUTTONS
+            if (gameState === GameState.GAME_OVER) {
+                // Restart button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 75 && touch.clientY < canvas.height / 2 + 135) {
+                    startGame();
+                }
+                // Home button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 150 && touch.clientY < canvas.height / 2 + 200) {
+                    gameState = GameState.START;
+                }
+            }
+
+            // SHOP SCREEN BUTTONS
+            if (gameState === GameState.SHOP) {
+                // Buy button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 120 && touch.clientY < canvas.height / 2 + 170) {
+                    buyNote().then(success => {
+                        if (success) {
+                            gameState = GameState.SHOWING_NOTE;
+                        }
+                    });
+                }
+                // Vault button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 185 && touch.clientY < canvas.height / 2 + 235) {
+                    fetchVaultNotes().then(() => {
+                        gameState = GameState.VAULT;
+                        vaultScrollOffset = 0; // Reset scroll when entering vault
+                    });
+                }
+                // Back button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 250 && touch.clientY < canvas.height / 2 + 300) {
+                    gameState = GameState.START;
+                }
+            }
+
+            // NOTE SCREEN BUTTONS
+            if (gameState === GameState.SHOWING_NOTE && noteAnimation > 1) {
+                // Continue button
+                if (touch.clientX > canvas.width / 2 - 100 && touch.clientX < canvas.width / 2 + 100 &&
+                    touch.clientY > canvas.height / 2 + 180 && touch.clientY < canvas.height / 2 + 230) {
+                    gameState = GameState.SHOP;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+
+            if (isDraggingVault && gameState === GameState.VAULT) {
+                const touch = e.touches[0];
+                const deltaY = touchStartY - touch.clientY;
+
+                // Calculate max scroll
+                const scrollHeight = canvas.height - 200;
+                const totalContentHeight = vaultNotes.length * 120;
+                const maxScroll = Math.max(0, totalContentHeight - scrollHeight + 40);
+
+                // Update scroll offset
+                vaultScrollOffset += deltaY;
+                vaultScrollOffset = Math.max(0, Math.min(maxScroll, vaultScrollOffset));
+
+                touchStartY = touch.clientY;
+                return;
+            }
+
+            if (isDragging && gameState === GameState.PLAYING) {
+                const touch = e.touches[0];
+                basket.x = touch.clientX - basket.width / 2;
+
+                if (basket.x < 0) basket.x = 0;
+                if (basket.x + basket.width > canvas.width) {
+                    basket.x = canvas.width - basket.width;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            isDragging = false;
+            isDraggingVault = false;
+        }
+
+        canvas.addEventListener('touchstart', handleTouchStart);
+        canvas.addEventListener('touchmove', handleTouchMove);
+        canvas.addEventListener('touchend', handleTouchEnd);
+
+        // Mouse support
+        let mouseDown = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            touchStartX = e.clientX;
+            touchStartY = e.clientY;
+
+            if (gameState === GameState.PLAYING) {
+                mouseDown = true;
+            }
+
+            // VAULT SCREEN - Handle scrolling
+            if (gameState === GameState.VAULT) {
+                // Check if clicking scrollable area (not the back button)
+                if (e.clientY > 120 && e.clientY < canvas.height - 80) {
+                    isDraggingVault = true;
+                    return;
+                }
+                // Back button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height - 70 && e.clientY < canvas.height - 20) {
+                    gameState = GameState.SHOP;
+                    vaultScrollOffset = 0; // Reset scroll
+                }
+                return;
+            }
+
+            // START SCREEN BUTTONS
+            if (gameState === GameState.START) {
+                // Play button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 60 && e.clientY < canvas.height / 2 + 120) {
+                    startGame();
+                }
+                // Shop button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 135 && e.clientY < canvas.height / 2 + 185) {
+                    gameState = GameState.SHOP;
+                    return; // Prevent further processing
+                }
+            }
+
+            // GAME OVER SCREEN BUTTONS
+            if (gameState === GameState.GAME_OVER) {
+                // Restart button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 75 && e.clientY < canvas.height / 2 + 135) {
+                    startGame();
+                }
+                // Home button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 150 && e.clientY < canvas.height / 2 + 200) {
+                    gameState = GameState.START;
+                }
+            }
+
+            // SHOP SCREEN BUTTONS
+            if (gameState === GameState.SHOP) {
+                // Buy button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 120 && e.clientY < canvas.height / 2 + 170) {
+                    buyNote().then(success => {
+                        if (success) {
+                            gameState = GameState.SHOWING_NOTE;
+                        }
+                    });
+                }
+                // Vault button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 185 && e.clientY < canvas.height / 2 + 235) {
+                    fetchVaultNotes().then(() => {
+                        gameState = GameState.VAULT;
+                        vaultScrollOffset = 0; // Reset scroll when entering vault
+                    });
+                }
+                // Back button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 250 && e.clientY < canvas.height / 2 + 300) {
+                    gameState = GameState.START;
+                }
+            }
+
+            // NOTE SCREEN BUTTONS
+            if (gameState === GameState.SHOWING_NOTE && noteAnimation > 1) {
+                // Continue button
+                if (e.clientX > canvas.width / 2 - 100 && e.clientX < canvas.width / 2 + 100 &&
+                    e.clientY > canvas.height / 2 + 180 && e.clientY < canvas.height / 2 + 230) {
+                    gameState = GameState.SHOP;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDraggingVault && gameState === GameState.VAULT) {
+                const deltaY = touchStartY - e.clientY;
+
+                // Calculate max scroll
+                const scrollHeight = canvas.height - 200;
+                const totalContentHeight = vaultNotes.length * 120;
+                const maxScroll = Math.max(0, totalContentHeight - scrollHeight + 40);
+
+                // Update scroll offset
+                vaultScrollOffset += deltaY;
+                vaultScrollOffset = Math.max(0, Math.min(maxScroll, vaultScrollOffset));
+
+                touchStartY = e.clientY;
+                return;
+            }
+
+            if (mouseDown && gameState === GameState.PLAYING) {
+                basket.x = e.clientX - basket.width / 2;
+
+                if (basket.x < 0) basket.x = 0;
+                if (basket.x + basket.width > canvas.width) {
+                    basket.x = canvas.width - basket.width;
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            mouseDown = false;
+            isDraggingVault = false;
+        });
+
+        // Game logic
+        let lastSpawnTime = 0;
+        let spawnInterval = 1000;
+        let gooseChance = 0.12;
+
+        function startGame() {
+            gameState = GameState.PLAYING;
+            score = 0;
+            fallingObjects = [];
+            particles = [];
+            basket.x = canvas.width / 2 - basket.width / 2;
+            lastSpawnTime = Date.now();
+        }
+
+        function spawnObject() {
+            const now = Date.now();
+            if (now - lastSpawnTime > spawnInterval) {
+                const isGoose = Math.random() < gooseChance;
+                fallingObjects.push(new FallingObject(isGoose));
+                lastSpawnTime = now;
+            }
+        }
+
+        function updateGame() {
+            if (gameState !== GameState.PLAYING) return;
+
+            spawnObject();
+            basket.bobbing += 0.1;
+
+            for (let i = fallingObjects.length - 1; i >= 0; i--) {
+                const obj = fallingObjects[i];
+                obj.update();
+
+                if (obj.checkCollision(basket)) {
+                    if (obj.isGoose) {
+                        gameState = GameState.GAME_OVER;
+                        // Update Supabase with final balance and high score
+                        const newHighScore = score > highScore ? score : highScore;
+                        updateMuffinData(balance, newHighScore);
+                    } else {
+                        score++;
+                        balance++;  // Increase total muffin balance
+                        createCelebration(obj.x, obj.y);
+                    }
+                    fallingObjects.splice(i, 1);
+                    continue;
+                }
+
+                if (obj.isOffScreen()) {
+                    if (!obj.isGoose) {
+                        gameState = GameState.GAME_OVER;
+                        // Update Supabase with final balance and high score
+                        const newHighScore = score > highScore ? score : highScore;
+                        updateMuffinData(balance, newHighScore);
+                    }
+                    fallingObjects.splice(i, 1);
+                }
+            }
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawGradientBackground() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, colors.background.start);
+            gradient.addColorStop(1, colors.background.end);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Decorative clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.beginPath();
+            ctx.arc(100, 80, 40, 0, Math.PI * 2);
+            ctx.arc(130, 85, 35, 0, Math.PI * 2);
+            ctx.arc(155, 80, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(canvas.width - 80, 120, 50, 0, Math.PI * 2);
+            ctx.arc(canvas.width - 45, 115, 40, 0, Math.PI * 2);
+            ctx.arc(canvas.width - 20, 120, 45, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBasket() {
+            if (!assets.loaded || !assets.basket) return;
+
+            ctx.save();
+            ctx.translate(basket.x + basket.width / 2, basket.y + basket.height / 2);
+
+            // Subtle bobbing animation
+            const bob = Math.sin(basket.bobbing) * 3;
+            ctx.translate(0, bob);
+
+            // Shadow
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = colors.textShadow;
+            ctx.beginPath();
+            ctx.ellipse(5, basket.height / 2 + 5, basket.width / 2, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Basket
+            ctx.globalAlpha = 1;
+            ctx.drawImage(
+                assets.basket,
+                -basket.width / 2,
+                -basket.height / 2,
+                basket.width,
+                basket.height
+            );
+
+            ctx.restore();
+        }
+
+        function drawScore() {
+            if (gameState === GameState.PLAYING) {
+                // Balance background (top left - larger)
+                ctx.fillStyle = colors.overlay;
+                ctx.beginPath();
+                ctx.roundRect(20, 20, 180, 70, 27);
+                ctx.fill();
+
+                // Balance text (Total Muffins)
+                ctx.fillStyle = colors.text;
+                ctx.font = `600 ${getFontSize(18)}px Poppins`;
+                ctx.textAlign = 'left';
+                ctx.shadowColor = colors.textShadow;
+                ctx.shadowBlur = 4;
+                ctx.fillText('🧁 Muffins', 40, 42);
+                ctx.font = `700 ${getFontSize(32)}px Poppins`;
+                ctx.fillStyle = colors.accent;
+                ctx.fillText(balance, 40, 75);
+                ctx.shadowBlur = 0;
+
+                // Score background (top right)
+                const scoreWidth = 140;
+                ctx.fillStyle = colors.overlay;
+                ctx.beginPath();
+                ctx.roundRect(canvas.width - scoreWidth - 20, 20, scoreWidth, 50, 22);
+                ctx.fill();
+
+                // Score text
+                ctx.fillStyle = colors.text;
+                ctx.font = `600 ${getFontSize(16)}px Poppins`;
+                ctx.textAlign = 'left';
+                ctx.shadowColor = colors.textShadow;
+                ctx.shadowBlur = 4;
+                ctx.fillText(`Score: ${score}`, canvas.width - scoreWidth, 50);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function drawButton(x, y, width, height, text) {
+            // Button shadow
+            ctx.fillStyle = colors.overlayDark;
+            ctx.beginPath();
+            ctx.roundRect(x + 4, y + 4, width, height, 30);
+            ctx.fill();
+
+            // Button gradient
+            const gradient = ctx.createLinearGradient(x, y, x, y + height);
+            gradient.addColorStop(0, colors.primary);
+            gradient.addColorStop(1, colors.secondary);
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(x, y, width, height, 30);
+            ctx.fill();
+
+            // Button border
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(x, y, width, height, 30);
+            ctx.stroke();
+
+            // Button text
+            ctx.fillStyle = colors.text;
+            ctx.font = `700 ${getFontSize(28)}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = colors.textShadow;
+            ctx.shadowBlur = 5;
+            ctx.fillText(text, x + width / 2, y + height / 2 + 10);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawStartScreen() {
+            // Semi-transparent overlay
+            ctx.fillStyle = colors.overlayDark;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Title - Line 1
+            const titleSize = getFontSize(52);
+            ctx.fillStyle = colors.text;
+            ctx.font = `800 ${titleSize}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = colors.textShadow;
+            ctx.shadowBlur = 10;
+            ctx.fillText('Anumaloo', canvas.width / 2, canvas.height / 2 - 160);
+
+            // Title - Line 2
+            ctx.fillText('Muffin', canvas.width / 2, canvas.height / 2 - 105);
+
+            // Subtitle - (the game)
+            const gameSubtitleSize = getFontSize(18);
+            ctx.font = `400 ${gameSubtitleSize}px Poppins`;
+            ctx.fillStyle = colors.accent;
+            ctx.fillText('(the game)', canvas.width / 2, canvas.height / 2 - 70);
+
+            // Instructions
+            const subtitleSize = getFontSize(22);
+            ctx.fillStyle = colors.text;
+            ctx.font = `600 ${subtitleSize}px Poppins`;
+            ctx.fillText('🧁 Catch all the muffins! 🧁', canvas.width / 2, canvas.height / 2 - 25);
+
+            const instructionSize = getFontSize(20);
+            ctx.font = `600 ${instructionSize}px Poppins`;
+            ctx.fillStyle = colors.accent;
+            ctx.fillText('Avoid the geese! 🦆', canvas.width / 2, canvas.height / 2 + 5);
+
+            // High Score display
+            if (highScore > 0) {
+                const highScoreSize = getFontSize(18);
+                ctx.font = `600 ${highScoreSize}px Poppins`;
+                ctx.fillStyle = colors.secondary;
+                ctx.fillText(`🏆 Best: ${highScore}`, canvas.width / 2, canvas.height / 2 + 35);
+            }
+
+            ctx.shadowBlur = 0;
+
+            // Play button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 60,
+                200,
+                60,
+                'PLAY'
+            );
+
+            // Shop button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 135,
+                200,
+                50,
+                'SHOP 🛒'
+            );
+        }
+
+        function drawGameOverScreen() {
+            // Semi-transparent overlay
+            ctx.fillStyle = colors.overlayDark;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Game Over title
+            const titleSize = getFontSize(44);
+            ctx.fillStyle = colors.text;
+            ctx.font = `800 ${titleSize}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = colors.textShadow;
+            ctx.shadowBlur = 10;
+            ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 120);
+
+            // Score card background (taller to fit content)
+            ctx.fillStyle = colors.overlay;
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 140, canvas.height / 2 - 70, 280, 120, 20);
+            ctx.fill();
+
+            // Final score
+            const labelSize = getFontSize(22);
+            ctx.fillStyle = colors.text;
+            ctx.font = `600 ${labelSize}px Poppins`;
+            ctx.fillText('Final Score', canvas.width / 2, canvas.height / 2 - 35);
+
+            const scoreSize = getFontSize(38);
+            ctx.font = `700 ${scoreSize}px Poppins`;
+            ctx.fillStyle = colors.accent;
+            ctx.fillText(score, canvas.width / 2, canvas.height / 2 + 5);
+
+            // High score indicator
+            if (score === highScore && score > 0) {
+                const celebSize = getFontSize(18);
+                ctx.font = `700 ${celebSize}px Poppins`;
+                ctx.fillStyle = colors.secondary;
+                ctx.fillText('🎉 New Best! 🎉', canvas.width / 2, canvas.height / 2 + 35);
+            } else if (highScore > 0) {
+                const bestSize = getFontSize(16);
+                ctx.font = `600 ${bestSize}px Poppins`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillText(`Best: ${highScore}`, canvas.width / 2, canvas.height / 2 + 35);
+            }
+
+            ctx.shadowBlur = 0;
+
+            // Restart button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 75,
+                200,
+                60,
+                'RESTART'
+            );
+
+            // Home button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 150,
+                200,
+                50,
+                'HOME 🏠'
+            );
+        }
+
+        function drawShopScreen() {
+            // Semi-transparent overlay
+            ctx.fillStyle = colors.overlayDark;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Title
+            const titleSize = getFontSize(42);
+            ctx.fillStyle = colors.text;
+            ctx.font = `800 ${titleSize}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = colors.textShadow;
+            ctx.shadowBlur = 10;
+            ctx.fillText('Shop', canvas.width / 2, canvas.height / 2 - 180);
+            ctx.shadowBlur = 0;
+
+            // Balance display
+            ctx.fillStyle = colors.overlay;
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 140, canvas.height / 2 - 130, 280, 65, 20);
+            ctx.fill();
+
+            ctx.fillStyle = colors.text;
+            ctx.font = `600 ${getFontSize(18)}px Poppins`;
+            ctx.fillText('Balance', canvas.width / 2, canvas.height / 2 - 115);
+
+            // Draw muffin icon and balance
+            if (assets.loaded && assets.muffins[0]) {
+                const muffinSize = 35;
+                ctx.drawImage(
+                    assets.muffins[0],
+                    canvas.width / 2 - 50,
+                    canvas.height / 2 - 105,
+                    muffinSize,
+                    muffinSize
+                );
+            }
+
+            ctx.font = `700 ${getFontSize(32)}px Poppins`;
+            ctx.fillStyle = colors.accent;
+            ctx.textAlign = 'left';
+            ctx.fillText(balance, canvas.width / 2 - 5, canvas.height / 2 - 78);
+            ctx.textAlign = 'center';
+
+            // Note card
+            ctx.fillStyle = colors.overlay;
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 160, canvas.height / 2 - 40, 320, 140, 20);
+            ctx.fill();
+
+            ctx.fillStyle = colors.text;
+            ctx.font = `600 ${getFontSize(24)}px Poppins`;
+            ctx.fillText('💌 Note from Me', canvas.width / 2, canvas.height / 2 - 5);
+
+            ctx.font = `600 ${getFontSize(28)}px Poppins`;
+            ctx.fillStyle = colors.secondary;
+            ctx.fillText('100 🧁', canvas.width / 2, canvas.height / 2 + 35);
+
+            ctx.font = `400 ${getFontSize(16)}px Poppins`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fillText(`${availableNotesCount} left to unlock`, canvas.width / 2, canvas.height / 2 + 65);
+
+            // Buy button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 120,
+                200,
+                50,
+                'BUY'
+            );
+
+            // Vault button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 185,
+                200,
+                50,
+                'VAULT 📦'
+            );
+
+            // Back button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height / 2 + 250,
+                200,
+                50,
+                'BACK'
+            );
+        }
+
+        function wrapText(text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = ctx.measureText(currentLine + ' ' + word).width;
+                if (width < maxWidth) {
+                    currentLine += ' ' + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        function drawNoteScreen() {
+            // Update animation
+            noteAnimation += 0.05;
+
+            // Semi-transparent overlay
+            ctx.fillStyle = colors.overlayDark;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Animated scale
+            const scale = Math.min(1, noteAnimation);
+            const opacity = Math.min(1, noteAnimation);
+
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(scale, scale);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+            // Note card
+            ctx.fillStyle = colors.accent;
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 180, canvas.height / 2 - 200, 360, 340, 25);
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = colors.secondary;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(canvas.width / 2 - 180, canvas.height / 2 - 200, 360, 340, 25);
+            ctx.stroke();
+
+            // Envelope icon
+            ctx.fillStyle = colors.primary;
+            ctx.font = `${getFontSize(48)}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.fillText('💌', canvas.width / 2, canvas.height / 2 - 135);
+
+            // Wrap and draw note text
+            ctx.fillStyle = colors.primary;
+            ctx.font = `600 ${getFontSize(20)}px Poppins`;
+            const maxWidth = 320;
+            const lines = wrapText(currentNote, maxWidth);
+            const lineHeight = getFontSize(28);
+            const startY = canvas.height / 2 - 70 + (lines.length > 3 ? -10 : 0);
+
+            lines.forEach((line, index) => {
+                ctx.fillText(line, canvas.width / 2, startY + index * lineHeight);
+            });
+
+            ctx.restore();
+
+            // Continue button (only show after animation)
+            if (noteAnimation > 1) {
+                drawButton(
+                    canvas.width / 2 - 100,
+                    canvas.height / 2 + 180,
+                    200,
+                    50,
+                    'CONTINUE'
+                );
+            }
+        }
+
+        function drawVaultScreen() {
+            // Semi-transparent overlay
+            ctx.fillStyle = colors.overlayDark;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Title
+            const titleSize = getFontSize(42);
+            ctx.fillStyle = colors.text;
+            ctx.font = `800 ${titleSize}px Poppins`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = colors.textShadow;
+            ctx.shadowBlur = 10;
+            ctx.fillText('Note Vault', canvas.width / 2, 80);
+            ctx.shadowBlur = 0;
+
+            // Scrollable area
+            const scrollTop = 120;
+            const scrollHeight = canvas.height - 200;
+
+            if (vaultNotes.length === 0) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.font = `400 ${getFontSize(20)}px Poppins`;
+                ctx.fillText('No notes yet!', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.fillText('Buy some from the shop', canvas.width / 2, canvas.height / 2);
+            } else {
+                // Save context for clipping
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, scrollTop, canvas.width, scrollHeight);
+                ctx.clip();
+
+                let yPos = scrollTop + 20 - vaultScrollOffset;
+
+                for (let i = 0; i < vaultNotes.length; i++) {
+                    const note = vaultNotes[i];
+
+                    // Only draw if visible
+                    if (yPos + 120 > scrollTop && yPos < scrollTop + scrollHeight) {
+                        // Note card
+                        ctx.fillStyle = colors.overlay;
+                        ctx.beginPath();
+                        ctx.roundRect(40, yPos, canvas.width - 80, 100, 15);
+                        ctx.fill();
+
+                        // Note text
+                        ctx.fillStyle = colors.text;
+                        ctx.font = `400 ${getFontSize(16)}px Poppins`;
+                        ctx.textAlign = 'left';
+                        const lines = wrapText(note.text, canvas.width - 120);
+                        lines.slice(0, 3).forEach((line, idx) => {
+                            ctx.fillText(line, 60, yPos + 30 + idx * 25);
+                        });
+                    }
+
+                    yPos += 120;
+                }
+
+                ctx.restore();
+
+                // Scroll indicator if there are more notes to scroll
+                const totalContentHeight = vaultNotes.length * 120;
+                const maxScroll = Math.max(0, totalContentHeight - scrollHeight + 40);
+
+                if (maxScroll > 0) {
+                    // Draw scroll bar
+                    const scrollBarHeight = Math.max(30, (scrollHeight / totalContentHeight) * scrollHeight);
+                    const scrollBarY = scrollTop + (vaultScrollOffset / maxScroll) * (scrollHeight - scrollBarHeight);
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.roundRect(canvas.width - 15, scrollBarY, 8, scrollBarHeight, 4);
+                    ctx.fill();
+                }
+            }
+
+            // Back button
+            drawButton(
+                canvas.width / 2 - 100,
+                canvas.height - 70,
+                200,
+                50,
+                'BACK'
+            );
+        }
+
+        function draw() {
+            drawGradientBackground();
+
+            // Draw particles
+            for (const particle of particles) {
+                particle.draw();
+            }
+
+            if (gameState === GameState.PLAYING || gameState === GameState.GAME_OVER) {
+                for (const obj of fallingObjects) {
+                    obj.draw();
+                }
+
+                drawBasket();
+                drawScore();
+            }
+
+            if (gameState === GameState.START) {
+                drawStartScreen();
+            } else if (gameState === GameState.GAME_OVER) {
+                drawGameOverScreen();
+            } else if (gameState === GameState.SHOP) {
+                drawShopScreen();
+            } else if (gameState === GameState.SHOWING_NOTE) {
+                drawNoteScreen();
+            } else if (gameState === GameState.VAULT) {
+                drawVaultScreen();
+            }
+
+            // Loading screen
+            if (!assets.loaded || !dataLoaded) {
+                ctx.fillStyle = colors.overlayDark;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = colors.text;
+                ctx.font = `600 ${getFontSize(28)}px Poppins`;
+                ctx.textAlign = 'center';
+                ctx.fillText('Loading...', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function gameLoop() {
+            updateGame();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            basket.y = canvas.height - 120;
+        });
+
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>

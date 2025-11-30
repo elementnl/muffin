@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56" width="80" height="56">
+  <!-- Basket body -->
+  <path d="M12 20 L16 50 L64 50 L68 20 Z" fill="#C4873A" stroke="#8B5A2B" stroke-width="1.5"/>
+  <!-- Weave horizontal lines with color variation -->
+  <line x1="13" y1="26" x2="67" y2="26" stroke="#A06A28" stroke-width="1.2"/>
+  <line x1="13.5" y1="32" x2="66.5" y2="32" stroke="#8B5A2B" stroke-width="1.2"/>
+  <line x1="14" y1="38" x2="66" y2="38" stroke="#A06A28" stroke-width="1.2"/>
+  <line x1="15" y1="44" x2="65" y2="44" stroke="#8B5A2B" stroke-width="1.2"/>
+  <!-- Weave vertical lines -->
+  <line x1="24" y1="20" x2="25" y2="50" stroke="#8B5A2B" stroke-width="1"/>
+  <line x1="36" y1="20" x2="36" y2="50" stroke="#A06A28" stroke-width="1"/>
+  <line x1="48" y1="20" x2="48" y2="50" stroke="#8B5A2B" stroke-width="1"/>
+  <line x1="60" y1="20" x2="59" y2="50" stroke="#A06A28" stroke-width="1"/>
+  <!-- Darker weave squares for variation -->
+  <rect x="25" y="26" width="11" height="6" fill="#B37A30" opacity="0.4"/>
+  <rect x="48" y="26" width="11" height="6" fill="#B37A30" opacity="0.4"/>
+  <rect x="14" y="38" width="11" height="6" fill="#B37A30" opacity="0.4"/>
+  <rect x="36" y="38" width="12" height="6" fill="#B37A30" opacity="0.4"/>
+  <!-- Lighter weave squares -->
+  <rect x="14" y="26" width="10" height="6" fill="#D9A055" opacity="0.3"/>
+  <rect x="36" y="26" width="12" height="6" fill="#D9A055" opacity="0.3"/>
+  <rect x="25" y="38" width="11" height="6" fill="#D9A055" opacity="0.3"/>
+  <rect x="48" y="38" width="11" height="6" fill="#D9A055" opacity="0.3"/>
+  <!-- Rim -->
+  <ellipse cx="40" cy="20" rx="28" ry="5" fill="#D4974A" stroke="#8B5A2B" stroke-width="1.5"/>
+  <!-- Inner shadow -->
+  <ellipse cx="40" cy="20" rx="24" ry="3.5" fill="#A06A28" opacity="0.5"/>
+  <!-- Left handle -->
+  <path d="M12 28 Q2 32 2 38 Q2 44 12 48" fill="none" stroke="#8B5A2B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M12 28 Q2 32 2 38 Q2 44 12 48" fill="none" stroke="#C4873A" stroke-width="2" stroke-linecap="round"/>
+  <!-- Left handle attachments -->
+  <ellipse cx="12" cy="28" rx="2.5" ry="3" fill="#A06A28" stroke="#8B5A2B" stroke-width="1"/>
+  <ellipse cx="12" cy="48" rx="2.5" ry="3" fill="#A06A28" stroke="#8B5A2B" stroke-width="1"/>
+  <!-- Right handle -->
+  <path d="M68 28 Q78 32 78 38 Q78 44 68 48" fill="none" stroke="#8B5A2B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M68 28 Q78 32 78 38 Q78 44 68 48" fill="none" stroke="#C4873A" stroke-width="2" stroke-linecap="round"/>
+  <!-- Right handle attachments -->
+  <ellipse cx="68" cy="28" rx="2.5" ry="3" fill="#A06A28" stroke="#8B5A2B" stroke-width="1"/>
+  <ellipse cx="68" cy="48" rx="2.5" ry="3" fill="#A06A28" stroke="#8B5A2B" stroke-width="1"/>
+</svg>

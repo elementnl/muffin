@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 68" width="64" height="68">
+  <!-- Body -->
+  <ellipse cx="32" cy="46" rx="17" ry="13" fill="#9CA3A8" stroke="#7A8085" stroke-width="1.5"/>
+  <!-- Tail -->
+  <path d="M15 44 Q9 42 7 46 Q9 50 15 48" fill="#7A8085" stroke="#5C6065" stroke-width="1.5"/>
+  <!-- Wing -->
+  <ellipse cx="28" cy="44" rx="9" ry="7" fill="#8A9196" stroke="#7A8085" stroke-width="1"/>
+  <!-- Neck -->
+  <path d="M44 42 Q54 34 52 18 Q50 10 47 8" fill="none" stroke="#9CA3A8" stroke-width="9" stroke-linecap="round"/>
+  <path d="M44 42 Q54 34 52 18 Q50 10 47 8" fill="none" stroke="#7A8085" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Head -->
+  <ellipse cx="45" cy="9" rx="7" ry="6" fill="#9CA3A8" stroke="#7A8085" stroke-width="1.5"/>
+  <!-- Beak -->
+  <path d="M52 9 L59 7 L59 11 Z" fill="#E8943A" stroke="#C67A28" stroke-width="1"/>
+  <!-- Eye -->
+  <circle cx="47" cy="7" r="1.8" fill="#1A1A1A"/>
+  <circle cx="47.5" cy="6.5" r="0.7" fill="#FFFFFF"/>
+  <!-- Legs -->
+  <line x1="26" y1="57" x2="26" y2="66" stroke="#E8943A" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="36" y1="57" x2="36" y2="66" stroke="#E8943A" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Feet -->
+  <path d="M22 66 L26 64 L30 66" stroke="#E8943A" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M32 66 L36 64 L40 66" stroke="#E8943A" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>

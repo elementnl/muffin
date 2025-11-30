@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 68" width="64" height="68">
+  <path d="M8 42 L14 62 L50 62 L56 42 Z" fill="#8B5A2B" stroke="#5D3A1A" stroke-width="1.5"/>
+  <line x1="20" y1="42" x2="21" y2="62" stroke="#5D3A1A" stroke-width="1"/>
+  <line x1="32" y1="42" x2="32" y2="62" stroke="#5D3A1A" stroke-width="1"/>
+  <line x1="44" y1="42" x2="43" y2="62" stroke="#5D3A1A" stroke-width="1"/>
+  <ellipse cx="32" cy="42" rx="25" ry="8" fill="#D4A054"/>
+  <path d="M7 42 Q14 22 32 20 Q50 22 57 42" fill="#D4A868" stroke="#B8925A" stroke-width="1.5"/>
+  <circle cx="18" cy="32" r="9" fill="#D4A868"/>
+  <circle cx="32" cy="26" r="11" fill="#D4A868"/>
+  <circle cx="46" cy="32" r="9" fill="#D4A868"/>
+  <rect x="18" y="26" width="6" height="4" rx="1" fill="#A67C4A" transform="rotate(-15 21 28)"/>
+  <rect x="28" y="22" width="7" height="4" rx="1" fill="#A67C4A" transform="rotate(10 31 24)"/>
+  <rect x="38" y="28" width="6" height="4" rx="1" fill="#A67C4A" transform="rotate(-5 41 30)"/>
+  <rect x="24" y="34" width="5" height="3" rx="1" fill="#A67C4A" transform="rotate(20 26 35)"/>
+  <rect x="36" y="36" width="5" height="3" rx="1" fill="#A67C4A" transform="rotate(-10 38 37)"/>
+</svg>

@@ -1,0 +1,14 @@
+{
+  "name": "muffin-game",
+  "version": "1.0.0",
+  "description": "Simple falling muffin catching game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2"
+  }
+}

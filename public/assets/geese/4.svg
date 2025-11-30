@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 64" width="68" height="64">
+  <!-- Body (chubby) -->
+  <ellipse cx="34" cy="42" rx="22" ry="16" fill="#8C8070" stroke="#6B6358" stroke-width="1.5"/>
+  <!-- Tail -->
+  <path d="M12 40 Q5 38 4 42 Q5 47 12 45" fill="#7A7065" stroke="#5C554C" stroke-width="1.5"/>
+  <!-- Wing -->
+  <ellipse cx="30" cy="40" rx="12" ry="9" fill="#7A7065" stroke="#6B6358" stroke-width="1"/>
+  <!-- Belly highlight -->
+  <ellipse cx="38" cy="50" rx="12" ry="6" fill="#9C9485" opacity="0.6"/>
+  <!-- Neck -->
+  <path d="M50 38 Q58 32 56 22 Q54 16 52 14" fill="none" stroke="#8C8070" stroke-width="11" stroke-linecap="round"/>
+  <path d="M50 38 Q58 32 56 22 Q54 16 52 14" fill="none" stroke="#6B6358" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Dewlap -->
+  <path d="M52 26 Q54 32 50 34" fill="#E8943A" stroke="#C67A28" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Head -->
+  <ellipse cx="50" cy="13" rx="8" ry="7" fill="#8C8070" stroke="#6B6358" stroke-width="1.5"/>
+  <!-- Beak -->
+  <path d="M58 13 L66 11 L66 15 Z" fill="#E8943A" stroke="#C67A28" stroke-width="1"/>
+  <!-- Eye -->
+  <circle cx="52" cy="11" r="2" fill="#1A1A1A"/>
+  <circle cx="52.5" cy="10.5" r="0.8" fill="#FFFFFF"/>
+  <!-- Legs -->
+  <line x1="28" y1="56" x2="28" y2="62" stroke="#E8943A" stroke-width="3" stroke-linecap="round"/>
+  <line x1="40" y1="56" x2="40" y2="62" stroke="#E8943A" stroke-width="3" stroke-linecap="round"/>
+  <!-- Feet -->
+  <path d="M23 62 L28 60 L33 62" stroke="#E8943A" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M35 62 L40 60 L45 62" stroke="#E8943A" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>
